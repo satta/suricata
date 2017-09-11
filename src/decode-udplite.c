@@ -66,7 +66,10 @@ int DecodeUDPLITE(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p,
     UdpliteHdr *myHdr = (UdpliteHdr *)pkt;
 
     /* Check whether checksum coverage is valid according to RFC3828) */
-    if (myHdr->checksum_coverage > 0 && myHdr->checksum_coverage < 8) {
+    if (ntohs(myHdr->checksum_coverage) > 0 && ntohs(myHdr->checksum_coverage) < 8) {
+      return TM_ECODE_FAILED;
+    }
+    if (ntohs(myHdr->checksum_coverage) > len) {
       return TM_ECODE_FAILED;
     }
 
