@@ -25,9 +25,9 @@
 /**
  * \file
  *
- * \author XXX Your Name <your@email.com>
+ * \author Sascha Steinbiss <satta@debian.org>
  *
- * Decodes XXX describe the protocol
+ * Decodes UDP-Lite.
  */
 
 #include "suricata-common.h"
@@ -40,7 +40,7 @@
 #include "util-debug.h"
 
 /**
- * \brief Function to decode XXX packets
+ * \brief Function to decode UDP Lite packets
  * \param tv thread vars
  * \param dtv decoder thread vars
  * \param p packet
@@ -52,8 +52,6 @@
 int DecodeUDPLITE(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p,
                    const uint8_t *pkt, uint16_t len, PacketQueue *pq)
 {
-    /* TODO add counter for your type of packet to DecodeThreadVars,
-     * and register it in DecodeRegisterPerfCounters */
     //StatsIncr(tv, dtv->counter_udplite);
 
     /* Validation: make sure that the input data is big enough to hold
@@ -65,29 +63,21 @@ int DecodeUDPLITE(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p,
         //ENGINE_SET_EVENT(p,UDPLITE_HEADER_TOO_SMALL);
         return TM_ECODE_FAILED;
     }
+    UdpliteHdr *myHdr = (UdpliteHdr *)pkt;
+
+    /* Check whether checksum coverage is valid according to RFC3828) */
+    if (myHdr->checksum_coverage > 0 && myHdr->checksum_coverage < 8) {
+      return TM_ECODE_FAILED;
+    }
 
     /* Now we can access the header */
-    const UdpliteHdr *hdr = (const UdpliteHdr *)pkt;
-
-    /* lets assume we have UDP encapsulated */
-    if (hdr->proto == 17) {
-        /* we need to pass on the pkt and it's length minus the current
-         * header */
-        size_t hdr_len = sizeof(UdpliteHdr);
-
-        /* in this example it's clear that hdr_len can't be bigger than
-         * 'len', but in more complex cases checking that we can't underflow
-         * len is very important
-        if (hdr_len < len) {
-         */
-
-        /* invoke the next decoder on the remainder of the data */
-        return DecodeUDP(tv, dtv, p, (uint8_t *)pkt + hdr_len, len - hdr_len, pq);
-        //}
-    } else {
-        //ENGINE_SET_EVENT(p,UDPLITE_UNSUPPORTED_PROTOCOL);
-        return TM_ECODE_FAILED;
-    }
+    p->udplitehdr = myHdr;
+    
+    SCLogDebug("#%"PRIu64": srcp %"PRIu16", dstp %"PRIu16", checksum_coverage %"PRIu16", checksum %"PRIu16, p->pcap_cnt,
+                                                                      ntohs(p->udplitehdr->srcp),
+                                                                      ntohs(p->udplitehdr->dstp),
+                                                                      ntohs(p->udplitehdr->checksum_coverage),
+                                                                      ntohs(p->udplitehdr->checksum));
 
     return TM_ECODE_OK;
 }
