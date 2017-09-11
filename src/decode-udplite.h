@@ -18,7 +18,7 @@
 /**
  * \file
  *
- * \author XXX
+ * \author Sascha Steinbiss <satta@debian.org>
  *
  */
 
@@ -29,9 +29,10 @@
 #include "threadvars.h"
 
 typedef struct UdpliteHdr_ {
-    uint8_t proto;
-    uint8_t pad0;
-    uint16_t pad1;
+    uint16_t srcp;
+    uint16_t dstp;
+    uint16_t checksum_coverage;
+    uint16_t checksum;
 } __attribute__((__packed__)) UdpliteHdr;
 
 #endif /* __DECODE_UDPLITE_H__ */
