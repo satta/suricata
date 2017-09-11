@@ -100,6 +100,9 @@ const struct DecodeEvents_ DEvents[] = {
     { "decoder.udp.hlen_too_small", UDP_HLEN_TOO_SMALL, },
     { "decoder.udp.hlen_invalid", UDP_HLEN_INVALID, },
 
+    /* UDP LITE EVENTS */
+    { "decoder.udplite.invalid_cov", UDP_LITE_INVALID_COVERAGE, },
+
     /* SLL EVENTS */
     { "decoder.sll.pkt_too_small", SLL_PKT_TOO_SMALL, },
 
