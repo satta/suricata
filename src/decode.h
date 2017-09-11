@@ -84,6 +84,7 @@ enum PktSrcEnum {
 #include "decode-icmpv6.h"
 #include "decode-tcp.h"
 #include "decode-udp.h"
+#include "decode-udplite.h"
 #include "decode-sctp.h"
 #include "decode-raw.h"
 #include "decode-null.h"
@@ -508,6 +509,8 @@ typedef struct Packet_
 
     UDPHdr *udph;
 
+    UdpliteHdr *udplitehdr;
+
     SCTPHdr *sctph;
 
     ICMPV4Hdr *icmpv4h;
@@ -802,6 +805,7 @@ void CaptureStatsSetup(ThreadVars *tv, CaptureStats *s);
         (p)->pppoesh = NULL;                    \
         (p)->pppoedh = NULL;                    \
         (p)->greh = NULL;                       \
+        (p)->udplitehdr = NULL; 			\
         (p)->vlanh[0] = NULL;                   \
         (p)->vlanh[1] = NULL;                   \
         (p)->payload = NULL;                    \
@@ -945,6 +949,7 @@ int DecodeICMPV4(ThreadVars *, DecodeThreadVars *, Packet *, uint8_t *, uint16_t
 int DecodeICMPV6(ThreadVars *, DecodeThreadVars *, Packet *, uint8_t *, uint16_t, PacketQueue *);
 int DecodeTCP(ThreadVars *, DecodeThreadVars *, Packet *, uint8_t *, uint16_t, PacketQueue *);
 int DecodeUDP(ThreadVars *, DecodeThreadVars *, Packet *, uint8_t *, uint16_t, PacketQueue *);
+int DecodeUDPLITE(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p, const uint8_t *pkt, uint16_t len, PacketQueue *pq);
 int DecodeSCTP(ThreadVars *, DecodeThreadVars *, Packet *, uint8_t *, uint16_t, PacketQueue *);
 int DecodeGRE(ThreadVars *, DecodeThreadVars *, Packet *, uint8_t *, uint16_t, PacketQueue *);
 int DecodeVLAN(ThreadVars *, DecodeThreadVars *, Packet *, uint8_t *, uint16_t, PacketQueue *);
