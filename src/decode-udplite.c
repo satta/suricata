@@ -64,14 +64,16 @@ int DecodeUDPLITE(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p,
         return TM_ECODE_FAILED;
     }
     UdpliteHdr *myHdr = (UdpliteHdr *)pkt;
+    p->sp = ntohs(myHdr->srcp);
+    p->dp = ntohs(myHdr->dstp);
 
     /* Check whether checksum coverage is valid according to RFC3828) */
-    if (ntohs(myHdr->checksum_coverage) > 0 && ntohs(myHdr->checksum_coverage) < 8) {
+    if (unlikely(ntohs(myHdr->checksum_coverage) > 0 && ntohs(myHdr->checksum_coverage) < 8)) {
         ENGINE_SET_INVALID_EVENT(p,UDP_LITE_INVALID_COVERAGE);
         return TM_ECODE_FAILED;
     }
     if (p->ip4h) {
-        if (ntohs(myHdr->checksum_coverage) > IPV4_GET_RAW_IPLEN(p->ip4h)) {
+        if (unlikely(ntohs(myHdr->checksum_coverage) > IPV4_GET_RAW_IPLEN(p->ip4h))) {
             ENGINE_SET_INVALID_EVENT(p,UDP_LITE_INVALID_COVERAGE);
             return TM_ECODE_FAILED;
         }
@@ -79,6 +81,8 @@ int DecodeUDPLITE(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p,
 
     /* Now we can access the header */
     p->udplitehdr = myHdr;
+    p->payload = pkt + sizeof(UdpliteHdr);
+    p->payload_len = len - sizeof(UdpliteHdr);
     
     SCLogDebug("#%"PRIu64": srcp %"PRIu16", dstp %"PRIu16", checksum_coverage %"PRIu16", checksum %"PRIu16, p->pcap_cnt,
                                                                       ntohs(p->udplitehdr->srcp),
