@@ -70,6 +70,7 @@
 #include "output-json.h"
 #include "output-json-nfs.h"
 #include "output-json-template.h"
+#include "output-json-udplite.h"
 #include "output-lua.h"
 #include "output-json-dnp3.h"
 #include "output-json-vars.h"
@@ -1086,4 +1087,6 @@ void OutputRegisterLoggers(void)
     JsonNFSLogRegister();
     /* Template JSON logger. */
     JsonTemplateLogRegister();
+
+    JsonUDPLitePacketLogRegister();
 }
