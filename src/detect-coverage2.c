@@ -191,7 +191,7 @@ static DetectCoverage2Data *DetectCoverage2Parse (const char *coverage2str)
                 coverage2d->mode = DETECT_COVERAGE2_LT;
                 coverage2d->arg1 = (uint8_t) atoi(arg3);
 
-                SCLogDebug("coverage2 is %"PRIu8"",coverage2d->arg1);
+                SCLogDebug("coverage2 is %"PRIu16"",coverage2d->arg1);
                 if (strlen(arg1) > 0)
                     goto error;
 
@@ -203,7 +203,7 @@ static DetectCoverage2Data *DetectCoverage2Parse (const char *coverage2str)
                 coverage2d->mode = DETECT_COVERAGE2_GT;
                 coverage2d->arg1 = (uint8_t) atoi(arg3);
 
-                SCLogDebug("coverage2 is %"PRIu8"",coverage2d->arg1);
+                SCLogDebug("coverage2 is %"PRIu16"",coverage2d->arg1);
                 if (strlen(arg1) > 0)
                     goto error;
 
@@ -218,7 +218,7 @@ static DetectCoverage2Data *DetectCoverage2Parse (const char *coverage2str)
                 coverage2d->arg1 = (uint8_t) atoi(arg1);
 
                 coverage2d->arg2 = (uint8_t) atoi(arg3);
-                SCLogDebug("coverage2 is %"PRIu8" to %"PRIu8"",coverage2d->arg1, coverage2d->arg2);
+                SCLogDebug("coverage2 is %"PRIu16" to %"PRIu16"",coverage2d->arg1, coverage2d->arg2);
                 if (coverage2d->arg1 >= coverage2d->arg2) {
                     SCLogError(SC_ERR_INVALID_SIGNATURE, "Invalid coverage2 range. ");
                     goto error;
@@ -336,7 +336,7 @@ PrefilterPacketCoverage2Match(DetectEngineThreadCtx *det_ctx, Packet *p, const v
     if (PrefilterPacketHeaderExtraMatch(ctx, p) == FALSE)
         return;
 
-    if (Coverage2Match(pcoverage2, ctx->v1.u8[0], ctx->v1.u8[1], ctx->v1.u8[2]))
+    if (Coverage2Match(pcoverage2, ctx->v1.u16[0], ctx->v1.u16[1], ctx->v1.u16[2]))
     {
         SCLogDebug("packet matches coverage2/hl %u", pcoverage2);
         PrefilterAddSids(&det_ctx->pmq, ctx->sigs_array, ctx->sigs_cnt);
@@ -347,18 +347,18 @@ static void
 PrefilterPacketCoverage2Set(PrefilterPacketHeaderValue *v, void *smctx)
 {
     const DetectCoverage2Data *a = smctx;
-    v->u8[0] = a->mode;
-    v->u8[1] = a->arg1;
-    v->u8[2] = a->arg2;
+    v->u16[0] = a->mode;
+    v->u16[1] = a->arg1;
+    v->u16[2] = a->arg2;
 }
 
 static _Bool
 PrefilterPacketCoverage2Compare(PrefilterPacketHeaderValue v, void *smctx)
 {
     const DetectCoverage2Data *a = smctx;
-    if (v.u8[0] == a->mode &&
-        v.u8[1] == a->arg1 &&
-        v.u8[2] == a->arg2)
+    if (v.u16[0] == a->mode &&
+        v.u16[1] == a->arg1 &&
+        v.u16[2] == a->arg2)
         return TRUE;
     return FALSE;
 }
