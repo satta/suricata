@@ -175,6 +175,7 @@
 #include "detect-app-layer-protocol.h"
 #include "detect-template.h"
 #include "detect-template2.h"
+#include "detect-coverage.h"
 #include "detect-target.h"
 #include "detect-template-buffer.h"
 #include "detect-bypass.h"
@@ -3852,6 +3853,7 @@ void SigTableSetup(void)
     DetectBase64DataRegister();
     DetectTemplateRegister();
     DetectTemplate2Register();
+    DetectCoverageRegister();
     DetectTargetRegister();
     DetectTemplateBufferRegister();
     DetectBypassRegister();
