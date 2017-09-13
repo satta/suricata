@@ -174,6 +174,7 @@
 #include "detect-geoip.h"
 #include "detect-app-layer-protocol.h"
 #include "detect-template.h"
+#include "detect-fixedttl.h"
 #include "detect-template2.h"
 #include "detect-coverage2.h"
 #include "detect-coverage.h"
@@ -3853,6 +3854,7 @@ void SigTableSetup(void)
     DetectBase64DecodeRegister();
     DetectBase64DataRegister();
     DetectTemplateRegister();
+    DetectFixedttlRegister();
     DetectTemplate2Register();
     DetectCoverage2Register();
     DetectCoverageRegister();

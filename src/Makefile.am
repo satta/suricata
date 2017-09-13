@@ -239,6 +239,7 @@ detect-stream_size.c detect-stream_size.h \
 detect-tag.c detect-tag.h \
 detect-target.c detect-target.h \
 detect-template.c detect-template.h \
+detect-fixedttl.c detect-fixedttl.h \
 detect-template2.c detect-template2.h \
 detect-coverage2.c detect-coverage2.h \
 detect-coverage.c detect-coverage.h \
