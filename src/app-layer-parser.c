@@ -1418,6 +1418,27 @@ void AppLayerParserRegisterProtocolParsers(void)
                   "msn");
     }
 
+    /** Rsync */
+    AppLayerProtoDetectRegisterProtocol(ALPROTO_RSYNC, "rsync");
+    if (AppLayerProtoDetectConfProtoDetectionEnabled("tcp", "rsync")) {
+      SCLogDebug("Rsync pattern registering");
+        if (AppLayerProtoDetectPMRegisterPatternCS(IPPROTO_TCP, ALPROTO_RSYNC,
+                                    "@RSYNCD:", 8, 0, STREAM_TOSERVER) < 0)
+        {
+            SCLogInfo("rsync proto registration failure\n");
+            exit(EXIT_FAILURE);
+        }
+        if (AppLayerProtoDetectPMRegisterPatternCS(IPPROTO_TCP, ALPROTO_RSYNC,
+                                    "@RSYNCD:", 8, 0, STREAM_TOCLIENT) < 0)
+        {
+            SCLogInfo("rsync proto registration failure\n");
+            exit(EXIT_FAILURE);
+        }
+    } else {
+        SCLogInfo("Protocol detection and parser disabled for %s protocol.",
+                  "rsync");
+    }
+
     ValidateParsers();
     return;
 }
