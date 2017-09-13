@@ -769,6 +769,21 @@ static int LuaCallbackFileInfoPushToStackFromFile(lua_State *luastate, const Fil
     return 6;
 }
 
+static int LuaCallbackUdpliteCoverage(lua_State *luastate)
+{
+    const Packet *p = LuaStateGetPacket(luastate);
+
+    if (p == NULL)
+        return LuaCallbackError(luastate, "internal error: no packet");
+
+    if (!p->udplitehdr) {
+      return LuaCallbackError(luastate, "no UDP-Lite header");
+    } else {
+      lua_pushnumber(luastate, ntohs(p->udplitehdr->checksum_coverage));
+      return 1;
+    }
+}
+
 /** \internal
  *  \brief Wrapper for getting tuple info into a lua script
  *  \retval cnt number of items placed on the stack
@@ -864,6 +879,8 @@ int LuaRegisterFunctions(lua_State *luastate)
     lua_setglobal(luastate, "SCPacketTimeString");
     lua_pushcfunction(luastate, LuaCallbackTuple);
     lua_setglobal(luastate, "SCPacketTuple");
+    lua_pushcfunction(luastate, LuaCallbackUdpliteCoverage);
+    lua_setglobal(luastate, "SCPacketUdpliteCoverage");
 
     lua_pushcfunction(luastate, LuaCallbackFlowTimestamps);
     lua_setglobal(luastate, "SCFlowTimestamps");
