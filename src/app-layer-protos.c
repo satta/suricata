@@ -57,6 +57,9 @@ const char *AppProtoToString(AppProto alproto)
         case ALPROTO_RSYNC:
             proto_name = "rsync";
             break;
+        case ALPROTO_GOPHER:
+            proto_name = "gopher";
+            break;
         case ALPROTO_JABBER:
             proto_name = "jabber";
             break;

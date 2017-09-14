@@ -685,6 +685,8 @@ pcap-file:
 # "detection-only" enables protocol detection only (parser disabled).
 app-layer:
   protocols:
+    gopher:
+      enabled: yes
     tls:
       enabled: yes
       detection-ports:
