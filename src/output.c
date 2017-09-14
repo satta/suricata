@@ -69,6 +69,7 @@
 #include "log-stats.h"
 #include "output-json.h"
 #include "output-json-nfs.h"
+#include "output-json-gopher.h"
 #include "output-json-template.h"
 #include "output-lua.h"
 #include "output-json-dnp3.h"
@@ -1084,6 +1085,8 @@ void OutputRegisterLoggers(void)
 
     /* NFS JSON logger. */
     JsonNFSLogRegister();
+    /* Gopher JSON logger. */
+    JsonGopherLogRegister();
     /* Template JSON logger. */
     JsonTemplateLogRegister();
 }
