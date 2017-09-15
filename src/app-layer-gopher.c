@@ -240,9 +240,8 @@ static AppProto GopherProbingParser(uint8_t *input, uint32_t input_len,
     uint32_t *offset)
 {
     /* Very simple test - if there is input, this is echo. */
-    if (input_len >= GOPHER_MIN_FRAME_LEN) {
-        SCLogNotice("Detected as ALPROTO_GOPHER.");
-        return ALPROTO_GOPHER;
+    if (input_len < GOPHER_MIN_FRAME_LEN) {
+        return ALPROTO_UNKNOWN;
     }
 
     if (input[0] == '/') {
@@ -294,6 +293,9 @@ static int GopherParseRequest(Flow *f, void *state,
     memcpy(tx->request_buffer, input, input_len);
     tx->request_buffer_len = input_len;
 
+    if (tx->request_item) {
+      free(tx->request_item);
+    }
     tx->request_item = NULL;
     if (input_len == 2 && input[0] == 0x0d && input[1] == 0x0a) {
       SCLogDebug("Directory listing requested");
@@ -302,8 +304,8 @@ static int GopherParseRequest(Flow *f, void *state,
 
     if (input_len > 3 && input[0] == '/' && input[input_len-1] == 0x0a) {
       SCLogDebug("Item requested");
-      tx->request_item = calloc(input_len-1, sizeof(char));
-      strncpy(tx->request_item, (char*)input, input_len-2);
+      tx->request_item = calloc(input_len, sizeof(char));
+      memcpy(tx->request_item, input, (input_len-2) * sizeof(uint8_t));
     }
 
     /* Here we check for an empty message and create an app-layer
@@ -328,7 +330,6 @@ static int GopherParseResponse(Flow *f, void *state, AppLayerParserState *pstate
 
     SCLogNotice("Parsing Gopher response.");
     uint16_t flags = FileFlowToFlags(f, STREAM_TOCLIENT);
-    /* flags |= FILE_USE_DETECT; */
 
     TAILQ_FOREACH(ttx, &gopher_state->tx_list, next) {
         tx = ttx;
@@ -354,6 +355,7 @@ static int GopherParseResponse(Flow *f, void *state, AppLayerParserState *pstate
             if (ret != 0) {
                 SCLogDebug("FileCloseFile() failed: %d", ret);
             }
+                    SCLogDebug("file %s closed", tx->request_item+1);
         }
         return 0;
     }
@@ -365,11 +367,12 @@ static int GopherParseResponse(Flow *f, void *state, AppLayerParserState *pstate
     }
 
     /* Make a copy of the response. */
-    tx->response_buffer = SCRealloc(tx->response_buffer, tx->response_buffer_len+input_len);
+    tx->response_buffer = SCRealloc(tx->response_buffer,
+        (tx->response_buffer_len+input_len) * sizeof(uint8_t));
     if (unlikely(tx->response_buffer == NULL)) {
         goto end;
     }
-    strncpy((char*)tx->response_buffer+tx->response_buffer_len, (char*)input, input_len);
+    memcpy(tx->response_buffer+tx->response_buffer_len, input, input_len * sizeof(uint8_t));
     tx->response_buffer_len += input_len;
 
     if (strcmp(tx->request_item, "<directory listing>") != 0) {
@@ -378,12 +381,15 @@ static int GopherParseResponse(Flow *f, void *state, AppLayerParserState *pstate
             gopher_state->files_ts = FileContainerAlloc();
             if (gopher_state->files_ts == NULL) {
                 SCLogError(SC_ERR_MEM_ALLOC, "Could not create file container");
-                SCReturnInt(1);
+                exit(1);
             }
         }
+        SCLogDebug("opening file %s", tx->request_item+1);
+
         if (FileOpenFile(gopher_state->files_ts, &sbcfg, (uint8_t *) tx->request_item+1, strlen(tx->request_item)-1,
                 (uint8_t *) input, input_len, flags) == NULL) {
             SCLogDebug("FileOpenFile() failed");
+            exit(1);
         }
         gopher_state->first = false;
       } else {
