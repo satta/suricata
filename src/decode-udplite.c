@@ -119,4 +119,3 @@ int DecodeUDPLITE(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p,
 */
     return TM_ECODE_OK;
 }
-
