@@ -68,22 +68,22 @@ int DecodeUDPLITE(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p,
 
     int32_t sport = rs_udplite_decode_sport(pkt, len);
     if (sport < 0) {
-      ENGINE_SET_INVALID_EVENT(p, UDPLITE_HEADER_TOO_SMALL);
+    //  ENGINE_SET_INVALID_EVENT(p, UDPLITE_HEADER_TOO_SMALL);
       return TM_ECODE_FAILED;
     }
     int32_t dport = rs_udplite_decode_dport(pkt, len);
     if (dport < 0) {
-      ENGINE_SET_INVALID_EVENT(p, UDPLITE_HEADER_TOO_SMALL);
+    //  ENGINE_SET_INVALID_EVENT(p, UDPLITE_HEADER_TOO_SMALL);
       return TM_ECODE_FAILED;
     }
     int32_t checksum = rs_udplite_decode_checksum(pkt, len);
     if (checksum < 0) {
-      ENGINE_SET_INVALID_EVENT(p, UDPLITE_HEADER_TOO_SMALL);
+    //  ENGINE_SET_INVALID_EVENT(p, UDPLITE_HEADER_TOO_SMALL);
       return TM_ECODE_FAILED;
     }
     int32_t coverage = rs_udplite_decode_coverage(pkt, len);
     if (coverage < 0) {
-      ENGINE_SET_INVALID_EVENT(p, UDPLITE_HEADER_TOO_SMALL);
+    //  ENGINE_SET_INVALID_EVENT(p, UDPLITE_HEADER_TOO_SMALL);
       return TM_ECODE_FAILED;
     }
 
