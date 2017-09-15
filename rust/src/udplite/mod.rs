@@ -48,3 +48,63 @@ pub extern "C" fn rs_udplite_decode_coverage(input: *const libc::uint8_t,
   }
   return 0;
 }
+
+#[no_mangle]
+pub extern "C" fn rs_udplite_decode_sport(input: *const libc::uint8_t,
+                                             len: libc::uint32_t) -> i32 {
+  let buf = unsafe{
+    std::slice::from_raw_parts(input, len as usize)
+  };
+  match parse_header(buf) {
+    IResult::Done(remaing, header) => {
+        return header.sport as i32;
+    },
+    IResult::Incomplete(needed) => {
+        println!("more data needed: {:?}", needed);
+    },
+    IResult::Error(err) => {
+        println!("error");
+    }
+  }
+  return 0;
+}
+
+#[no_mangle]
+pub extern "C" fn rs_udplite_decode_dport(input: *const libc::uint8_t,
+                                             len: libc::uint32_t) -> i32 {
+  let buf = unsafe{
+    std::slice::from_raw_parts(input, len as usize)
+  };
+  match parse_header(buf) {
+    IResult::Done(remaing, header) => {
+        return header.dport as i32;
+    },
+    IResult::Incomplete(needed) => {
+        println!("more data needed: {:?}", needed);
+    },
+    IResult::Error(err) => {
+        println!("error");
+    }
+  }
+  return 0;
+}
+
+#[no_mangle]
+pub extern "C" fn rs_udplite_decode_checksum(input: *const libc::uint8_t,
+                                             len: libc::uint32_t) -> i32 {
+  let buf = unsafe{
+    std::slice::from_raw_parts(input, len as usize)
+  };
+  match parse_header(buf) {
+    IResult::Done(remaing, header) => {
+        return header.checksum as i32;
+    },
+    IResult::Incomplete(needed) => {
+        println!("more data needed: {:?}", needed);
+    },
+    IResult::Error(err) => {
+        println!("error");
+    }
+  }
+  return 0;
+}

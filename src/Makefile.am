@@ -69,6 +69,7 @@ decode-sll.c decode-sll.h \
 decode-tcp.c decode-tcp.h \
 decode-teredo.c decode-teredo.h \
 decode-udp.c decode-udp.h \
+decode-udplite.c decode-udplite.h \
 decode-vlan.c decode-vlan.h \
 decode-mpls.c decode-mpls.h \
 decode-template.c decode-template.h \
