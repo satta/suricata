@@ -271,6 +271,7 @@ typedef struct DetectPort_ {
 #define SIG_MASK_REQUIRE_TEMPLATE_STATE     (1<<13)
 #define SIG_MASK_REQUIRE_ENIP_STATE         (1<<14)
 #define SIG_MASK_REQUIRE_DNP3_STATE         (1<<15)
+#define SIG_MASK_REQUIRE_GOPHER_STATE       (1<<16)
 
 /* for now a uint8_t is enough */
 #define SignatureMask uint16_t
@@ -1352,6 +1353,8 @@ enum {
     DETECT_TEMPLATE,
     DETECT_TEMPLATE2,
     DETECT_TARGET,
+    DETECT_AL_GOPHER_BUFFER,
+    DETECT_AL_GOPHER_LISTING,
     DETECT_AL_TEMPLATE_BUFFER,
 
     DETECT_BYPASS,
@@ -1419,4 +1422,3 @@ int SigMatchSignaturesRunPostMatch(ThreadVars *tv,
 void DetectSignatureApplyActions(Packet *p, const Signature *s, const uint8_t);
 
 #endif /* __DETECT_H__ */
-

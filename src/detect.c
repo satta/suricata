@@ -176,6 +176,8 @@
 #include "detect-template.h"
 #include "detect-template2.h"
 #include "detect-target.h"
+#include "detect-gopher-buffer.h"
+#include "detect-gopher-listing.h"
 #include "detect-template-buffer.h"
 #include "detect-bypass.h"
 #include "detect-engine-content-inspection.h"
@@ -2027,6 +2029,10 @@ PacketCreateMask(Packet *p, SignatureMask *mask, AppProto alproto,
                     SCLogDebug("packet/flow has dnp3 state");
                     (*mask) |= SIG_MASK_REQUIRE_DNP3_STATE;
                     break;
+                case ALPROTO_GOPHER:
+                    SCLogDebug("packet/flow has gopher state");
+                    (*mask) |= SIG_MASK_REQUIRE_GOPHER_STATE;
+                    break;
                 case ALPROTO_TEMPLATE:
                     SCLogDebug("packet/flow has template state");
                     (*mask) |= SIG_MASK_REQUIRE_TEMPLATE_STATE;
@@ -2164,6 +2170,14 @@ static int SignatureCreateMask(Signature *s)
         s->mask |= SIG_MASK_REQUIRE_ENIP_STATE;
         SCLogDebug("sig requires enip state");
     }
+    if (s->alproto == ALPROTO_GOPHER) {
+        s->mask |= SIG_MASK_REQUIRE_GOPHER_STATE;
+        SCLogDebug("sig requires gopher state");
+    }
+    if (s->alproto == ALPROTO_GOPHER) {
+        s->mask |= SIG_MASK_REQUIRE_GOPHER_STATE;
+        SCLogDebug("sig requires gopher state");
+    }
     if (s->alproto == ALPROTO_TEMPLATE) {
         s->mask |= SIG_MASK_REQUIRE_TEMPLATE_STATE;
         SCLogDebug("sig requires template state");
@@ -2177,6 +2191,8 @@ static int SignatureCreateMask(Signature *s)
         (s->mask & SIG_MASK_REQUIRE_FTP_STATE) ||
         (s->mask & SIG_MASK_REQUIRE_SMTP_STATE) ||
         (s->mask & SIG_MASK_REQUIRE_ENIP_STATE) ||
+        (s->mask & SIG_MASK_REQUIRE_GOPHER_STATE) ||
+        (s->mask & SIG_MASK_REQUIRE_GOPHER_STATE) ||
         (s->mask & SIG_MASK_REQUIRE_TEMPLATE_STATE) ||
         (s->mask & SIG_MASK_REQUIRE_TLS_STATE))
     {
@@ -3853,6 +3869,8 @@ void SigTableSetup(void)
     DetectTemplateRegister();
     DetectTemplate2Register();
     DetectTargetRegister();
+    DetectGopherBufferRegister();
+    DetectGopherListingRegister();
     DetectTemplateBufferRegister();
     DetectBypassRegister();
     DetectHttpRequestLineRegister();
@@ -9321,4 +9339,3 @@ void SigRegisterTests(void)
 #endif
 #endif /* UNITTESTS */
 }
-
