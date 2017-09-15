@@ -41,6 +41,7 @@ pub mod lua;
 
 pub mod dns;
 pub mod nfs;
+pub mod udplite;
 
 #[cfg(feature = "experimental")]
 pub mod ntp;
