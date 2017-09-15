@@ -92,7 +92,6 @@ int DecodeUDPLITE(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p,
 
     SCLogDebug("#%"PRIu64": srcp %"PRIu16", dstp %"PRIu16", checksum_coverage %"PRIu16", checksum %"PRIu16, p->pcap_cnt,
                                                                       sport, dport, coverage, checksum);
->>>>>>> WIP
 
     /* Check whether checksum coverage is valid according to RFC3828) */
     if (unlikely(ntohs(myHdr->checksum_coverage) > 0 && ntohs(myHdr->checksum_coverage) < 8)) {
