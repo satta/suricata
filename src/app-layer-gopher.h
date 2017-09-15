@@ -75,6 +75,9 @@ typedef struct GopherState_ {
     uint16_t events; /**< Number of application layer events created
                       * for this state. */
 
+    FileContainer *files_ts;
+    bool first;
+
 } GopherState;
 
 #endif /* __APP_LAYER_GOPHER_H__ */

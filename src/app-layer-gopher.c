@@ -44,6 +44,7 @@
 #include "app-layer-parser.h"
 
 #include "app-layer-gopher.h"
+#include "util-streaming-buffer.h"
 
 /* The default port to probe for echo traffic if not provided in the
  * configuration file. */
@@ -52,6 +53,8 @@
 /* The minimum size for an echo message. For some protocols this might
  * be the size of a header. */
 #define GOPHER_MIN_FRAME_LEN 2
+
+StreamingBufferConfig sbcfg = STREAMING_BUFFER_CONFIG_INITIALIZER;
 
 /* Enum of app-layer events for an echo protocol. Normally you might
  * have events for errors in parsing data, like unexpected data being
@@ -120,6 +123,7 @@ static void *GopherStateAlloc(void)
         return NULL;
     }
     TAILQ_INIT(&state->tx_list);
+    state->first = true;
     return state;
 }
 
@@ -132,7 +136,32 @@ static void GopherStateFree(void *state)
         TAILQ_REMOVE(&gopher_state->tx_list, tx, next);
         GopherTxFree(tx);
     }
+    FileContainerFree(gopher_state->files_ts);
     SCFree(gopher_state);
+}
+
+static FileContainer *GopherStateGetFiles(void *state, uint8_t direction)
+{
+    if (state == NULL)
+        return NULL;
+
+    GopherState *gopher_state = (GopherState *)state;
+
+    if (direction & STREAM_TOSERVER) {
+        SCReturnPtr(NULL, "FileContainer");
+    } else {
+        SCReturnPtr(gopher_state->files_ts, "FileContainer");
+    }
+}
+
+static void GopherStateTruncate(void *state, uint8_t direction)
+{
+    FileContainer *fc = GopherStateGetFiles(state, direction);
+    if (fc != NULL) {
+        SCLogDebug("truncating stream, closing files in %s direction (container %p)",
+                direction & STREAM_TOCLIENT ? "STREAM_TOCLIENT" : "STREAM_TOSERVER", fc);
+        FileTruncateAllOpenFiles(fc);
+    }
 }
 
 /**
@@ -294,32 +323,38 @@ end:
 static int GopherParseResponse(Flow *f, void *state, AppLayerParserState *pstate,
     uint8_t *input, uint32_t input_len, void *local_data)
 {
-    GopherState *echo = state;
+    GopherState *gopher_state = state;
     GopherTransaction *tx = NULL, *ttx;;
 
     SCLogNotice("Parsing Gopher response.");
+    uint16_t flags = FileFlowToFlags(f, STREAM_TOCLIENT);
+    /* flags |= FILE_USE_DETECT; */
 
-    TAILQ_FOREACH(ttx, &echo->tx_list, next) {
+    TAILQ_FOREACH(ttx, &gopher_state->tx_list, next) {
         tx = ttx;
     }
 
     if (tx == NULL) {
         SCLogNotice("Failed to find transaction for response on echo state %p.",
-            echo);
+            gopher_state);
         goto end;
     }
 
     SCLogNotice("Found transaction %"PRIu64" for response on echo state %p.",
-        tx->tx_id, echo);
+        tx->tx_id, gopher_state);
 
 
     /* Likely connection closed, we can just return here. */
     if ((input == NULL || input_len == 0) &&
         AppLayerParserStateIssetFlag(pstate, APP_LAYER_PARSER_EOF)) {
         tx->response_done = 1;
-        //SCLogNotice("Response for request: %s", tx->request_item);
-        //PrintRawDataFp(stdout, tx->response_buffer, tx->response_buffer_len);
-        //printf("%.*s", tx->response_buffer_len, tx->response_buffer);
+        gopher_state->first = true;
+        if (gopher_state->files_ts && gopher_state->files_ts->tail && gopher_state->files_ts->tail->state == FILE_STATE_OPENED) {
+            int ret = FileCloseFile(gopher_state->files_ts, (uint8_t *) input, input_len, flags);
+            if (ret != 0) {
+                SCLogDebug("FileCloseFile() failed: %d", ret);
+            }
+        }
         return 0;
     }
 
@@ -336,6 +371,31 @@ static int GopherParseResponse(Flow *f, void *state, AppLayerParserState *pstate
     }
     strncpy((char*)tx->response_buffer+tx->response_buffer_len, (char*)input, input_len);
     tx->response_buffer_len += input_len;
+
+    if (strcmp(tx->request_item, "<directory listing>") != 0) {
+      if (gopher_state->first) {
+        if (gopher_state->files_ts == NULL) {
+            gopher_state->files_ts = FileContainerAlloc();
+            if (gopher_state->files_ts == NULL) {
+                SCLogError(SC_ERR_MEM_ALLOC, "Could not create file container");
+                SCReturnInt(1);
+            }
+        }
+        if (FileOpenFile(gopher_state->files_ts, &sbcfg, (uint8_t *) tx->request_item+1, strlen(tx->request_item)-1,
+                (uint8_t *) input, input_len, flags) == NULL) {
+            SCLogDebug("FileOpenFile() failed");
+        }
+        gopher_state->first = false;
+      } else {
+        int ret = FileAppendData(gopher_state->files_ts, (uint8_t *) input, input_len);
+        if (ret == -2) {
+            SCLogDebug("FileAppendData() - file no longer being extracted");
+        } else if (ret < 0) {
+            SCLogDebug("FileAppendData() failed: %d", ret);
+        }
+      }
+
+    }
 
 end:
     return 0;
@@ -446,6 +506,7 @@ static int GopherSetTxDetectState(void *state, void *vtx,
 void RegisterGopherParsers(void)
 {
     const char *proto_name = "gopher";
+    sbcfg.buf_size = 256;
 
     /* Check if Gopher TCP detection is enabled. If it does not exist in
      * the configuration file then it will be enabled by default. */
@@ -514,6 +575,9 @@ void RegisterGopherParsers(void)
         /* Register a function to return the current transaction count. */
         AppLayerParserRegisterGetTxCnt(IPPROTO_TCP, ALPROTO_GOPHER,
             GopherGetTxCnt);
+
+        AppLayerParserRegisterGetFilesFunc(IPPROTO_TCP, ALPROTO_GOPHER, GopherStateGetFiles);
+        AppLayerParserRegisterTruncateFunc(IPPROTO_TCP, ALPROTO_GOPHER, GopherStateTruncate);
 
         /* Transaction handling. */
         AppLayerParserRegisterGetStateProgressCompletionStatus(ALPROTO_GOPHER,
