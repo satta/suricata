@@ -55,40 +55,49 @@ impl fmt::Display for RFBGlobalState {
     }
 }
 
+#[derive(Debug)]
 pub struct ProtocolVersion {
     pub major: String,
     pub minor: String
 }
 
+#[derive(Debug)]
 pub struct SupportedSecurityTypes {
     pub number_of_types: u8,
     pub types: Vec<u8>
 }
 
+#[derive(Debug)]
 pub struct SecurityTypeSelection {
     pub security_type: u8
 }
 
+#[derive(Debug)]
 pub struct ServerSecurityType {
     pub security_type: u32
 }
 
+#[derive(Debug)]
 pub struct SecurityResult {
     pub status: u32
 }
 
+#[derive(Debug)]
 pub struct FailureReason {
     pub reason_string: String
 }
 
+#[derive(Debug)]
 pub struct VncAuth {
     pub secret: Vec<u8>
 }
 
+#[derive(Debug)]
 pub struct ClientInit {
     pub shared: u8
 }
 
+#[derive(Debug)]
 pub struct PixelFormat {
     pub bits_per_pixel: u8,
     pub depth: u8,
@@ -102,12 +111,156 @@ pub struct PixelFormat {
     pub blue_shift: u8,
 }
 
+#[derive(Debug)]
 pub struct ServerInit {
     pub width: u16,
     pub height: u16,
     pub pixel_format: PixelFormat,
     pub name_length: u32,
     pub name: Vec<u8>
+}
+
+#[derive(Debug)]
+pub enum ClientServerMessage {
+    SetPixelFormat(SetPixelFormatCSData),
+    SetEncodings(SetEncodingsCSData),
+    FramebufferUpdateRequest(FramebufferUpdateRequestCSData),
+    KeyEvent(KeyEventCSData),
+    PointerEvent(PointerEventCSData),
+    ClientCutText(ClientCutTextCSData),
+    Unassigned(u8)
+}
+
+#[derive(Debug)]
+pub struct SetPixelFormatCSData {
+    pub pixel_format: PixelFormat
+}
+
+#[derive(Debug)]
+pub struct SetEncodingsCSData {
+    pub encoding_types: Vec<i32>
+}
+
+#[derive(Debug)]
+pub struct FramebufferUpdateRequestCSData {
+    pub incremental: u8,
+    pub xpos: u16,
+    pub ypos: u16,
+    pub width: u16,
+    pub height: u16
+}
+
+#[derive(Debug)]
+pub struct KeyEventCSData {
+    pub down: bool,
+    pub key: u32
+}
+
+#[derive(Debug)]
+pub struct PointerEventCSData {
+    pub buttonmask: u8,
+    pub xpos: u16,
+    pub ypos: u16
+}
+
+#[derive(Debug)]
+pub struct ClientCutTextCSData {
+    pub text: Vec<u8>
+}
+
+#[derive(Debug)]
+pub enum ServerClientMessage {
+    FramebufferUpdate(FramebufferUpdateSCData),
+    SetColorMapEntries(SetColorMapEntriesSCData),
+    Bell,
+    ServerCutText(ServerCutTextSCData),
+    Unassigned(u8)
+}
+
+#[derive(Debug)]
+pub struct RawRectData {
+    pub pixels: Vec<u8>
+}
+
+#[derive(Debug)]
+pub struct CopyRectData {
+    pub xpos: u16,
+    pub ypos: u16
+}
+
+#[derive(Debug)]
+pub struct RRESubrectData {
+    pub pixel_value: Vec<u8>,
+    pub xpos: u16,
+    pub ypos: u16,
+    pub width: u16,
+    pub height: u16,
+}
+
+#[derive(Debug)]
+pub struct RRERectData {
+    pub bg_pixel: Vec<u8>,
+    pub subrectangles: Vec<RRESubrectData>
+}
+
+#[derive(Debug)]
+pub struct HextileTile {
+    // TODO
+}
+
+#[derive(Debug)]
+pub struct HextileRectData {
+    pub tiles: Vec<HextileTile>
+}
+
+#[derive(Debug)]
+pub struct ZRLERectData {
+    // TODO decompress and parse further
+    pub data: Vec<u8>
+}
+
+
+// TODO TRLE, ZRLE, pseudo-encodings
+#[derive(Debug)]
+pub enum RectangleData {
+    Raw(RawRectData),
+    CopyRect(CopyRectData),
+    RRE(RRERectData),
+    Hextile(HextileRectData),
+    ZRLE(ZRLERectData)
+}
+
+#[derive(Debug)]
+pub struct Rectangle {
+    pub xpos: u16,
+    pub ypos: u16,
+    pub width: u16,
+    pub height: u16,
+    pub encoding_type: i32,
+    pub data: RectangleData,
+}
+
+#[derive(Debug)]
+pub struct FramebufferUpdateSCData {
+    pub rectangles: Vec<Rectangle>
+}
+
+#[derive(Debug)]
+pub struct RGBValue {
+    pub red: u16,
+    pub green: u16,
+    pub blue: u16
+}
+
+#[derive(Debug)]
+pub struct SetColorMapEntriesSCData {
+    pub first_color: u16,
+    pub colors: Vec<RGBValue>
+}
+
+#[derive(Debug)]
+pub struct ServerCutTextSCData {
+    pub text: Vec<u8>
 }
 
 named!(pub parse_protocol_version<ProtocolVersion>,
@@ -255,6 +408,289 @@ named!(pub parse_server_init<ServerInit>,
         )
     )
 );
+
+named!(pub parse_msg_type<u8>,
+    do_parse!(
+        msg_type: be_u8
+        >> (
+            msg_type
+        )
+    )
+);
+
+named!(pub parse_set_pixel_format<SetPixelFormatCSData>,
+    do_parse!(
+        take!(3)  // padding
+        >> pixel_format: parse_pixel_format
+        >> (
+            SetPixelFormatCSData {
+                pixel_format: pixel_format
+            }
+        )
+    )
+);
+
+named!(pub parse_set_encodings<SetEncodingsCSData>,
+    do_parse!(
+        take!(1)  // padding
+        >> number_of_encodings: be_u16
+        >> encoding_types: count!(be_i32, number_of_encodings as usize)
+        >> (
+            SetEncodingsCSData {
+                encoding_types: encoding_types
+            }
+        )
+    )
+);
+
+named!(pub parse_fb_update_request<FramebufferUpdateRequestCSData>,
+    do_parse!(
+        incremental: be_u8
+        >> xpos: be_u16
+        >> ypos: be_u16
+        >> width: be_u16
+        >> height: be_u16
+        >> (
+            FramebufferUpdateRequestCSData {
+                incremental: incremental,
+                xpos: xpos,
+                ypos: ypos,
+                width: width,
+                height: height
+            }
+        )
+    )
+);
+
+named!(pub parse_key_event<KeyEventCSData>,
+    do_parse!(
+        down: be_u8
+        >> take!(2)   // padding
+        >> key: be_u32
+        >> (
+            KeyEventCSData {
+                down: down != 0,
+                key: key
+            }
+        )
+    )
+);
+
+named!(pub parse_pointer_event<PointerEventCSData>,
+    do_parse!(
+        buttonmask: be_u8
+        >> xpos: be_u16
+        >> ypos: be_u16
+        >> (
+            PointerEventCSData {
+                buttonmask: buttonmask,
+                xpos: xpos,
+                ypos: ypos
+            }
+        )
+    )
+);
+
+named!(pub parse_client_cut_text<ClientCutTextCSData>,
+    do_parse!(
+        take!(3)   // padding
+        >> text: length_data!(be_u32)
+        >> (
+            ClientCutTextCSData {
+                text: text.to_vec()
+            }
+        )
+    )
+);
+
+named!(pub parse_rgb_value<RGBValue>,
+    do_parse!(
+        red: be_u16
+        >> green: be_u16
+        >> blue: be_u16
+        >> (
+            RGBValue {
+                red: red,
+                green: green,
+                blue: blue
+            }
+        )
+    )
+);
+
+named!(pub parse_set_color_map_entries<SetColorMapEntriesSCData>,
+    do_parse!(
+        take!(1)   // padding
+        >> firstcolor: be_u16
+        >> number_of_rgbs: be_u16
+        >> rgbs: count!(parse_rgb_value, number_of_rgbs as usize)
+        >> (
+            SetColorMapEntriesSCData {
+                first_color: firstcolor,
+                colors: rgbs
+            }
+        )
+    )
+);
+
+named!(pub parse_server_cut_text<ServerCutTextSCData>,
+    do_parse!(
+        take!(3)   // padding
+        >> text: length_data!(be_u32)
+        >> (
+            ServerCutTextSCData {
+                text: text.to_vec()
+            }
+        )
+    )
+);
+
+named!(pub parse_rectangle_data_zrle<RectangleData>,
+    do_parse!(
+        data: length_data!(be_u32)
+        >> (
+            RectangleData::ZRLE( ZRLERectData {
+                data: data.to_vec()
+            })
+        )
+    )
+);
+
+
+pub fn parse_rectangle_data(input: &[u8], etype: i32) -> IResult<&[u8], RectangleData> {
+    SCLogNotice!("parsing rectangle with type {:?}", etype);
+    match etype {
+        16 => parse_rectangle_data_zrle(input),
+        _ => {
+            return Ok((&[], RectangleData::Raw(RawRectData{
+                pixels: vec![0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+            })))
+        }
+    }
+}
+
+named!(pub parse_rectangle<Rectangle>,
+    do_parse!(
+        xpos: be_u16
+        >> ypos: be_u16
+        >> width: be_u16
+        >> height: be_u16
+        >> encoding_type: be_i32
+        >> data: call!(parse_rectangle_data, encoding_type)
+        >> (
+            Rectangle {
+                xpos: xpos,
+                ypos: ypos,
+                width: width,
+                height: height,
+                encoding_type: encoding_type,
+                data: data
+            }
+        )
+    )
+);
+
+named!(pub parse_fb_update<FramebufferUpdateSCData>,
+    do_parse!(
+        take!(1)   // padding
+        >> number_of_rectangles: be_u16
+        >> rectangles: count!(parse_rectangle, number_of_rectangles as usize)
+        >> (
+            FramebufferUpdateSCData {
+                rectangles: rectangles
+            }
+        )
+    )
+);
+
+pub fn parse_ts_message(input: &[u8]) -> IResult<&[u8], ClientServerMessage> {
+    SCLogNotice!("parsing ts message {:?}", input);
+    match parse_msg_type(input) {
+        Ok((rem, message_type)) => {
+            SCLogNotice!("ts type {:?}", message_type);
+            match message_type {
+                0 => match parse_set_pixel_format(rem) {
+                    Ok((inner_rem, data)) => {
+                       return  Ok((inner_rem, ClientServerMessage::SetPixelFormat(data)))
+                    }
+                    Err(e) => Err(e),
+                },
+                2 => match parse_set_encodings(rem) {
+                    Ok((inner_rem, data)) => {
+                       return  Ok((inner_rem, ClientServerMessage::SetEncodings(data)))
+                    }
+                    Err(e) => Err(e),
+                },
+                3 => match parse_fb_update_request(rem) {
+                    Ok((inner_rem, data)) => {
+                       return  Ok((inner_rem, ClientServerMessage::FramebufferUpdateRequest(data)))
+                    }
+                    Err(e) => Err(e),
+                },
+                4 => match parse_key_event(rem) {
+                    Ok((inner_rem, data)) => {
+                       return  Ok((inner_rem, ClientServerMessage::KeyEvent(data)))
+                    }
+                    Err(e) => Err(e),
+                },
+                5 => match parse_pointer_event(rem) {
+                    Ok((inner_rem, data)) => {
+                       return  Ok((inner_rem, ClientServerMessage::PointerEvent(data)))
+                    }
+                    Err(e) => Err(e),
+                },
+                6 => match parse_client_cut_text(rem) {
+                    Ok((inner_rem, data)) => {
+                       return  Ok((inner_rem, ClientServerMessage::ClientCutText(data)))
+                    }
+                    Err(e) => Err(e),
+                },
+                _ => {
+                    Ok((rem, ClientServerMessage::Unassigned(message_type)))
+                }
+            }
+        }
+        Err(err) => {
+            return Err(err);
+        }
+    }
+}
+
+pub fn parse_tc_message(input: &[u8]) -> IResult<&[u8], ServerClientMessage> {
+    SCLogNotice!("parsing tc message {:?}", input);
+    match parse_msg_type(input) {
+        Ok((rem, message_type)) => {
+            SCLogNotice!("tc type {:?}", message_type);
+            match message_type {
+                0 => match parse_fb_update(rem) {
+                    Ok((inner_rem, data)) => {
+                       return  Ok((inner_rem, ServerClientMessage::FramebufferUpdate(data)))
+                    }
+                    Err(e) => Err(e),
+                },
+                1 => match parse_set_color_map_entries(rem) {
+                    Ok((inner_rem, data)) => {
+                       return  Ok((inner_rem, ServerClientMessage::SetColorMapEntries(data)))
+                    }
+                    Err(e) => Err(e),
+                },
+                2 =>  Ok((rem, ServerClientMessage::Bell)),
+                3 => match parse_server_cut_text(rem) {
+                    Ok((inner_rem, data)) => {
+                       return  Ok((inner_rem, ServerClientMessage::ServerCutText(data)))
+                    }
+                    Err(e) => Err(e),
+                },
+                _ => {
+                    Ok((rem, ServerClientMessage::Unassigned(message_type)))
+                }
+            }
+        }
+        Err(err) => {
+            return Err(err);
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

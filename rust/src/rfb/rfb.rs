@@ -263,8 +263,20 @@ impl RFBState {
                     }
                 }
                 parser::RFBGlobalState::Message => {
-                    //todo implement RFB messages, for now we stop here
-                    return AppLayerResult::err();
+                    match parser::parse_ts_message(current) {
+                        Ok((rem, request)) => {
+                            consumed += current.len() - rem.len();
+                            current = rem;
+
+                            SCLogNotice!("parsed {:?}", request);
+                        }
+                        Err(nom::Err::Incomplete(_)) => {
+                            return AppLayerResult::incomplete(consumed as u32, (current.len() + 1) as u32);
+                        }
+                        Err(_) => {
+                            return AppLayerResult::err();
+                        }
+                    }
                 }
                 parser::RFBGlobalState::TCServerProtocolVersion => {
                     SCLogDebug!("Reversed traffic, expected response.");
@@ -473,8 +485,20 @@ impl RFBState {
                     }
                 }
                 parser::RFBGlobalState::Message => {
-                    //todo implement RFB messages, for now we stop here
-                    return AppLayerResult::err();
+                   match parser::parse_tc_message(current) {
+                        Ok((rem, request)) => {
+                            consumed += current.len() - rem.len();
+                            current = rem;
+
+                            SCLogNotice!("parsed {:?}", request);
+                        }
+                        Err(nom::Err::Incomplete(_)) => {
+                            return AppLayerResult::incomplete(consumed as u32, (current.len() + 1) as u32);
+                        }
+                        Err(_) => {
+                            return AppLayerResult::err();
+                        }
+                    }
                 }
                 _ => {
                     SCLogDebug!("Invalid state for response");
