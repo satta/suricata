@@ -1,3 +1,4 @@
+#![feature(trace_macros)]
 /* Copyright (C) 2020 Open Information Security Foundation
  *
  * You can copy, redistribute or modify this Program under the terms of
@@ -16,6 +17,8 @@
  */
 
 // Author: Frank Honza <frank.honza@dcso.de>
+
+
 
 use std::fmt;
 use nom::*;
@@ -53,6 +56,13 @@ impl fmt::Display for RFBGlobalState {
             RFBGlobalState::Message => write!(f, "Message")
         }
     }
+}
+
+#[derive(Debug)]
+pub struct RFBStateInfo {
+    pub width: u16,
+    pub height: u16,
+    pub bits_per_pixel: u8
 }
 
 #[derive(Debug)]
@@ -204,8 +214,26 @@ pub struct RRERectData {
 }
 
 #[derive(Debug)]
+pub struct HextileSubrect {
+    pub pixel_value: Option<Vec<u8>>,
+    pub xpos: u8,
+    pub ypos: u8,
+    pub width: u8,
+    pub height: u8,
+}
+
+#[derive(Debug)]
 pub struct HextileTile {
-    // TODO
+    pub width: u8,
+    pub height: u8,
+    pub SubencodingRaw: bool,
+    pub SubencodingBackgroundSpecified: bool,
+    pub SubencodingForegroundSpecified: bool,
+    pub SubencodingAnySubrects: bool,
+    pub SubencodingSubrectsColoured: bool,
+    pub bg_pixel_value: Vec<u8>,
+    pub fg_pixel_value: Vec<u8>,
+    pub subrects: Vec<HextileSubrect>
 }
 
 #[derive(Debug)]
@@ -556,11 +584,97 @@ named!(pub parse_rectangle_data_zrle<RectangleData>,
     )
 );
 
+#[inline]
+fn parse_hextile_tile_flags(i: &[u8]) -> IResult<&[u8], (u8, u8, u8, u8, u8)> {
+    bits!(
+        i,
+        tuple!(
+            take_bits!(3u8),
+            take_bits!(1u8),
+            take_bits!(1u8),
+            take_bits!(1u8),
+            take_bits!(1u8)
+        )
+    )
+}
 
-pub fn parse_rectangle_data(input: &[u8], etype: i32) -> IResult<&[u8], RectangleData> {
+#[inline]
+fn parse_hextile_halfbytes(i: &[u8]) -> IResult<&[u8], (u8, u8, u8)> {
+    bits!(
+        i,
+        tuple!(
+            take_bits!(4u8),
+            take_bits!(4u8),
+        )
+    )
+}
+
+named_args!(pub parse_hextile_subrect(bpp: u8, coloured: bool)<RectangleData>,
+    do_parse!(
+        pixel_value: cond!(coloured, take!(bpp/8))
+        >> xy_pos: parse_hextile_halfbytes
+        >> width_height: parse_hextile_halfbytes
+        >> (
+            HextileSubrect {
+                pixel_value: pixel_value,
+                xpos: xy_pos.0,
+                ypos: xy_pos.1,
+                width: width_height.0,
+                height: width_height.1
+            }
+        )
+    )
+);
+
+pub fn parse_hextile_tile(input: &[u8], bpp: u8) -> IResult<&[u8], HextileTile> {
+    match parse_hextile_tile_flags(input) => {
+
+    }
+}
+
+pub fn parse_rectangle_data_hextile(input: &[u8], bpp: u8, width: u16, height: u16) -> IResult<&[u8], RectangleData> {
+    let n_x_tiles = (width as f32 / 16.0).ceil() as u16;
+    let n_y_tiles = (height as f32 / 16.0).ceil() as u16;
+    SCLogNotice!("w {} h {}", n_x_tiles, n_y_tiles);
+
+    let mut current = input;
+
+    for n in 0..(n_y_tiles * n_x_tiles) {
+        match parse_hextile_tile(current, bpp) {
+            Ok((rem, tile)) => {
+
+            }
+            Err(e) => return Err(e)
+        }
+    }
+
+
+    return Ok((input, RectangleData::Hextile(HextileRectData {
+        tiles: Vec::new()
+    })))
+}
+
+pub fn parse_rectangle_data(input: &[u8], etype: i32, bpp: u8, width: u16, height: u16) -> IResult<&[u8], RectangleData> {
     SCLogNotice!("parsing rectangle with type {:?}", etype);
     match etype {
-        16 => parse_rectangle_data_zrle(input),
+        5 => {
+            match parse_rectangle_data_hextile(input, bpp, width, height) {
+                Ok((rect_rem, data)) => {
+                    SCLogNotice!("parsed {:?} rects", data);
+                    return Ok((rect_rem, data))
+                 }
+                 Err(e) => Err(e),
+            }
+        }
+        16 => {
+            match parse_rectangle_data_zrle(input) {
+                Ok((rect_rem, data)) => {
+                    SCLogNotice!("parsed {:?} rects", data);
+                    return Ok((rect_rem, data))
+                 }
+                 Err(e) => Err(e),
+            }
+        }
         _ => {
             return Ok((&[], RectangleData::Raw(RawRectData{
                 pixels: vec![0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -569,14 +683,14 @@ pub fn parse_rectangle_data(input: &[u8], etype: i32) -> IResult<&[u8], Rectangl
     }
 }
 
-named!(pub parse_rectangle<Rectangle>,
+named_args!(pub parse_rectangle(bpp: u8, width: u16, height: u16)<Rectangle>,
     do_parse!(
         xpos: be_u16
         >> ypos: be_u16
         >> width: be_u16
         >> height: be_u16
         >> encoding_type: be_i32
-        >> data: call!(parse_rectangle_data, encoding_type)
+        >> data: call!(parse_rectangle_data, encoding_type, bpp, width, height)
         >> (
             Rectangle {
                 xpos: xpos,
@@ -590,11 +704,10 @@ named!(pub parse_rectangle<Rectangle>,
     )
 );
 
-named!(pub parse_fb_update<FramebufferUpdateSCData>,
+named_args!(pub parse_fb_update(bpp: u8, width: u16, height: u16)<FramebufferUpdateSCData>,
     do_parse!(
         take!(1)   // padding
-        >> number_of_rectangles: be_u16
-        >> rectangles: count!(parse_rectangle, number_of_rectangles as usize)
+        >> rectangles: length_count!(be_u16, call!(parse_rectangle, bpp, width, height))
         >> (
             FramebufferUpdateSCData {
                 rectangles: rectangles
@@ -603,8 +716,8 @@ named!(pub parse_fb_update<FramebufferUpdateSCData>,
     )
 );
 
-pub fn parse_ts_message(input: &[u8]) -> IResult<&[u8], ClientServerMessage> {
-    SCLogNotice!("parsing ts message {:?}", input);
+pub fn parse_ts_message<'a>(input: &'a [u8], state_info: &RFBStateInfo) -> IResult<&'a [u8], ClientServerMessage> {
+    SCLogNotice!("parsing ts message len {}", input.len());
     match parse_msg_type(input) {
         Ok((rem, message_type)) => {
             SCLogNotice!("ts type {:?}", message_type);
@@ -656,13 +769,13 @@ pub fn parse_ts_message(input: &[u8]) -> IResult<&[u8], ClientServerMessage> {
     }
 }
 
-pub fn parse_tc_message(input: &[u8]) -> IResult<&[u8], ServerClientMessage> {
-    SCLogNotice!("parsing tc message {:?}", input);
+pub fn parse_tc_message<'a>(input: &'a [u8], state_info: &RFBStateInfo) -> IResult<&'a [u8], ServerClientMessage> {
+    SCLogNotice!("parsing tc message len {}", input.len());
     match parse_msg_type(input) {
         Ok((rem, message_type)) => {
             SCLogNotice!("tc type {:?}", message_type);
             match message_type {
-                0 => match parse_fb_update(rem) {
+                0 => match parse_fb_update(rem, state_info.bits_per_pixel, state_info.width, state_info.height) {
                     Ok((inner_rem, data)) => {
                        return  Ok((inner_rem, ServerClientMessage::FramebufferUpdate(data)))
                     }

@@ -94,7 +94,8 @@ impl Drop for RFBTransaction {
 pub struct RFBState {
     tx_id: u64,
     transactions: Vec<RFBTransaction>,
-    state: parser::RFBGlobalState
+    state: parser::RFBGlobalState,
+    state_info: parser::RFBStateInfo
 }
 
 impl RFBState {
@@ -102,7 +103,12 @@ impl RFBState {
         Self {
             tx_id: 0,
             transactions: Vec::new(),
-            state: parser::RFBGlobalState::TCServerProtocolVersion
+            state: parser::RFBGlobalState::TCServerProtocolVersion,
+            state_info: parser::RFBStateInfo{
+                bits_per_pixel: 0,
+                width: 0,
+                height: 0
+            }
         }
     }
 
@@ -263,7 +269,7 @@ impl RFBState {
                     }
                 }
                 parser::RFBGlobalState::Message => {
-                    match parser::parse_ts_message(current) {
+                    match parser::parse_ts_message(current, &self.state_info) {
                         Ok((rem, request)) => {
                             consumed += current.len() - rem.len();
                             current = rem;
@@ -485,7 +491,7 @@ impl RFBState {
                     }
                 }
                 parser::RFBGlobalState::Message => {
-                   match parser::parse_tc_message(current) {
+                   match parser::parse_tc_message(current, &self.state_info) {
                         Ok((rem, request)) => {
                             consumed += current.len() - rem.len();
                             current = rem;
