@@ -175,6 +175,8 @@ AppProto StringToAppProto(const char *proto_name)
         return ALPROTO_NTP;
     if (strcmp(proto_name, "ike") == 0)
         return ALPROTO_IKE;
+    if (strcmp(proto_name,"ikev2")==0)
+        return ALPROTO_IKE;
     if (strcmp(proto_name, "krb5") == 0)
         return ALPROTO_KRB5;
     if (strcmp(proto_name, "dhcp") == 0)
