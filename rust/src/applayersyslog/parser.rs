@@ -16,7 +16,7 @@
  */
 
 use std::fmt;
-use nom7::{IResult, Err, Needed};
+use nom7::{IResult};
 use nom7::bytes::complete::{tag, take, take_until};
 use nom7::character::complete::digit1;
 use nom7::combinator::{complete, map_res, map_parser, rest};
@@ -140,9 +140,6 @@ pub fn parse_message_udp(input: &[u8]) -> IResult<&[u8], SyslogMessage> {
 pub fn parse_message_tcp(input: &[u8]) -> IResult<&[u8], SyslogMessage> {
     match parse_octets(input) {
         Ok((i, octets)) => {
-            if i.len() < octets {
-                return Err(Err::Incomplete(Needed::new(octets - i.len())));
-            }
             return map_parser(take(octets), complete(parse_syslog_msg))(i);
         }
         Err(_) => {

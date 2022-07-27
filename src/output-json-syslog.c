@@ -67,7 +67,6 @@ typedef struct LogSyslogLogThread_ {
 static int JsonSyslogLogger(ThreadVars *tv, void *thread_data,
     const Packet *p, Flow *f, void *state, void *tx, uint64_t tx_id)
 {
-    SCLogNotice("JsonSyslogLogger");
     LogSyslogLogThread *thread = thread_data;
 
     JsonBuilder *js = CreateEveHeader(
