@@ -114,6 +114,7 @@ fn parse_syslog_priority(i: &[u8]) -> IResult<&[u8], (u8, u8, u8)> {
     Ok ((i, (pri, pri >> 3, pri & 7)))
 }
 
+#[inline]
 fn parse_syslog_msg(i: &[u8]) -> IResult<&[u8], SyslogMessage> {
     let (i, (pri, fac, sev)) = parse_syslog_priority(i)?;
     let (i, m) = rest(i)?;
@@ -125,6 +126,7 @@ fn parse_syslog_msg(i: &[u8]) -> IResult<&[u8], SyslogMessage> {
     }))
 }
 
+#[inline]
 fn parse_octets(input: &[u8]) -> IResult<&[u8], usize> {
    let (i, octs) =  map_res(map_res(digit1, std::str::from_utf8), usize::from_str)(input)?;
    let (i, _) = tag(" ")(i)?;

@@ -122,16 +122,11 @@ impl SyslogState {
             match parser::parse_message_udp(start) {
                 Ok((rem, request)) => {
                     start = rem;
-                    SCLogNotice!("Request: {:?}", request);
                     let mut tx = self.new_tx();
                     tx.request = Some(request);
                     self.transactions.push_back(tx);
-                    SCLogNotice!("txs: {:?}", self.transactions);
                 },
                 Err(Err::Incomplete(_)) => {
-                    // Not enough data. This parser doesn't give us a good indication
-                    // of how much data is missing so just ask for one more byte so the
-                    // parse is called as soon as more data is received.
                     let consumed = input.len() - start.len();
                     let needed = start.len() + 1;
                     return AppLayerResult::incomplete(consumed as u32, needed as u32);
@@ -157,16 +152,11 @@ impl SyslogState {
             match parser::parse_message_tcp(start) {
                 Ok((rem, request)) => {
                     start = rem;
-                    SCLogNotice!("Request: {:?}", request);
                     let mut tx = self.new_tx();
                     tx.request = Some(request);
                     self.transactions.push_back(tx);
-                    SCLogNotice!("txs: {:?}", self.transactions);
                 },
                 Err(Err::Incomplete(_)) => {
-                    // Not enough data. This parser doesn't give us a good indication
-                    // of how much data is missing so just ask for one more byte so the
-                    // parse is called as soon as more data is received.
                     let consumed = input.len() - start.len();
                     let needed = start.len() + 1;
                     return AppLayerResult::incomplete(consumed as u32, needed as u32);
