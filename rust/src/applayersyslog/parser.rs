@@ -16,10 +16,10 @@
  */
 
 use std::fmt;
-use nom7::{IResult};
-use nom7::bytes::complete::tag;
+use nom7::{IResult, Err, Needed};
+use nom7::bytes::complete::{tag, take, take_until};
 use nom7::character::complete::digit1;
-use nom7::combinator::{complete, map_res, rest};
+use nom7::combinator::{complete, map_res, map_parser, rest};
 use std::str::FromStr;
 use num_traits::FromPrimitive;
 
@@ -102,50 +102,50 @@ pub struct SyslogMessage {
     pub priority: Option<u8>,
     pub facility: Option<SyslogFacility>,
     pub severity: Option<SyslogSeverity>,
-    pub version: Option<u8>,
-    pub timestamp: Option<u64>,
     pub msg: String,
 }
 
-
-
-
 #[inline]
 fn parse_syslog_priority(i: &[u8]) -> IResult<&[u8], (u8, u8, u8)> {
+    let (i, _) = take_until("<")(i)?;
     let (i, _) = tag("<")(i)?;
     let (i, pri) = map_res(map_res(digit1, std::str::from_utf8), u8::from_str)(i)?;
     let (i, _) = tag(">")(i)?;
     Ok ((i, (pri, pri >> 3, pri & 7)))
 }
 
-fn parse_syslog_udp(i: &[u8]) -> IResult<&[u8], SyslogMessage> {
+fn parse_syslog_msg(i: &[u8]) -> IResult<&[u8], SyslogMessage> {
     let (i, (pri, fac, sev)) = parse_syslog_priority(i)?;
     let (i, m) = rest(i)?;
     Ok((i, SyslogMessage{
         priority: Some(pri),
         facility: FromPrimitive::from_u8(fac),
         severity: FromPrimitive::from_u8(sev),
-        version: None,
-        timestamp: None,
         msg: String::from_utf8_lossy(m).to_string(),
     }))
 }
 
-pub fn parse_syslog_tcp(i: &[u8]) -> IResult<&[u8], SyslogMessage> {
-     Ok((i, SyslogMessage{
-        priority: None,
-        facility: None,
-        severity: None,
-        version: None,
-        timestamp: None,
-        msg: "".to_string(),
-    }))
+fn parse_octets(input: &[u8]) -> IResult<&[u8], usize> {
+   let (i, octs) =  map_res(map_res(digit1, std::str::from_utf8), usize::from_str)(input)?;
+   let (i, _) = tag(" ")(i)?;
+   Ok((i, octs))
 }
 
 pub fn parse_message_udp(input: &[u8]) -> IResult<&[u8], SyslogMessage> {
-    return complete(parse_syslog_udp)(input);
+    return complete(parse_syslog_msg)(input);
 }
 
 pub fn parse_message_tcp(input: &[u8]) -> IResult<&[u8], SyslogMessage> {
-    return parse_syslog_tcp(input);
+    match parse_octets(input) {
+        Ok((i, octets)) => {
+            if i.len() < octets {
+                return Err(Err::Incomplete(Needed::new(octets - i.len())));
+            }
+            return map_parser(take(octets), complete(parse_syslog_msg))(i);
+        }
+        Err(_) => {
+            SCLogDebug!("no octets");
+            return complete(parse_syslog_msg)(input);
+        }
+    }
 }

@@ -71,7 +71,7 @@ static int JsonSyslogLogger(ThreadVars *tv, void *thread_data,
     LogSyslogLogThread *thread = thread_data;
 
     JsonBuilder *js = CreateEveHeader(
-            p, LOG_DIR_PACKET, "syslog", NULL, thread->sysloglog_ctx->eve_ctx);
+            p, LOG_DIR_FLOW_TOSERVER, "syslog", NULL, thread->sysloglog_ctx->eve_ctx);
     if (unlikely(js == NULL)) {
         return TM_ECODE_FAILED;
     }

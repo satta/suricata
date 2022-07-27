@@ -124,7 +124,7 @@ impl SyslogState {
         None
     }
 
-    fn parse_request(&mut self, input: &[u8]) -> AppLayerResult {
+    fn parse_request_udp(&mut self, input: &[u8]) -> AppLayerResult {
         // We're not interested in empty requests.
         if input.len() == 0 {
             return AppLayerResult::ok();
@@ -159,7 +159,7 @@ impl SyslogState {
         return AppLayerResult::ok();
     }
 
-    fn parse_response(&mut self, input: &[u8]) -> AppLayerResult {
+    fn parse_response_udp(&mut self, input: &[u8]) -> AppLayerResult {
         // We're not interested in empty responses.
         if input.len() == 0 {
             return AppLayerResult::ok();
@@ -168,6 +168,78 @@ impl SyslogState {
         let mut start = input;
         while start.len() > 0 {
             match parser::parse_message_udp(start) {
+                Ok((rem, response)) => {
+                    start = rem;
+
+                    match self.find_request() {
+                        Some(tx) => {
+                            tx.response = Some(response);
+                            SCLogNotice!("Found response for request:");
+                            SCLogNotice!("- Request: {:?}", tx.request);
+                            SCLogNotice!("- Response: {:?}", tx.response);
+                        }
+                        None => {}
+                    }
+                }
+                Err(Err::Incomplete(_)) => {
+                    let consumed = input.len() - start.len();
+                    let needed = start.len() + 1;
+                    return AppLayerResult::incomplete(consumed as u32, needed as u32);
+                }
+                Err(_) => {
+                    return AppLayerResult::err();
+                }
+            }
+        }
+
+        // All input was fully consumed.
+        return AppLayerResult::ok();
+    }
+
+    fn parse_request_tcp(&mut self, input: &[u8]) -> AppLayerResult {
+        // We're not interested in empty requests.
+        if input.len() == 0 {
+            return AppLayerResult::ok();
+        }
+
+        let mut start = input;
+        while start.len() > 0 {
+            match parser::parse_message_tcp(start) {
+                Ok((rem, request)) => {
+                    start = rem;
+                    SCLogNotice!("Request: {:?}", request);
+                    let mut tx = self.new_tx();
+                    tx.request = Some(request);
+                    self.transactions.push_back(tx);
+                    SCLogNotice!("txs: {:?}", self.transactions);
+                },
+                Err(Err::Incomplete(_)) => {
+                    // Not enough data. This parser doesn't give us a good indication
+                    // of how much data is missing so just ask for one more byte so the
+                    // parse is called as soon as more data is received.
+                    let consumed = input.len() - start.len();
+                    let needed = start.len() + 1;
+                    return AppLayerResult::incomplete(consumed as u32, needed as u32);
+                },
+                Err(_) => {
+                    return AppLayerResult::err();
+                },
+            }
+        }
+
+        // Input was fully consumed.
+        return AppLayerResult::ok();
+    }
+
+    fn parse_response_tcp(&mut self, input: &[u8]) -> AppLayerResult {
+        // We're not interested in empty responses.
+        if input.len() == 0 {
+            return AppLayerResult::ok();
+        }
+
+        let mut start = input;
+        while start.len() > 0 {
+            match parser::parse_message_tcp(start) {
                 Ok((rem, response)) => {
                     start = rem;
 
@@ -246,7 +318,7 @@ pub unsafe extern "C" fn rs_syslog_state_tx_free(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn rs_syslog_parse_request(
+pub unsafe extern "C" fn rs_syslog_parse_request_tcp(
     _flow: *const Flow,
     state: *mut std::os::raw::c_void,
     pstate: *mut std::os::raw::c_void,
@@ -273,12 +345,12 @@ pub unsafe extern "C" fn rs_syslog_parse_request(
         AppLayerResult::ok()
     } else {
         let buf = stream_slice.as_slice();
-        state.parse_request(buf)
+        state.parse_request_tcp(buf)
     }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn rs_syslog_parse_response(
+pub unsafe extern "C" fn rs_syslog_parse_response_tcp(
     _flow: *const Flow,
     state: *mut std::os::raw::c_void,
     pstate: *mut std::os::raw::c_void,
@@ -299,7 +371,65 @@ pub unsafe extern "C" fn rs_syslog_parse_response(
         AppLayerResult::ok()
     } else {
         let buf = stream_slice.as_slice();
-        state.parse_response(buf)
+        state.parse_response_tcp(buf)
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rs_syslog_parse_request_udp(
+    _flow: *const Flow,
+    state: *mut std::os::raw::c_void,
+    pstate: *mut std::os::raw::c_void,
+    stream_slice: StreamSlice,
+    _data: *const std::os::raw::c_void
+) -> AppLayerResult {
+    let eof = if AppLayerParserStateIssetFlag(pstate, APP_LAYER_PARSER_EOF_TS) > 0 {
+        true
+    } else {
+        false
+    };
+
+    if eof {
+        // If needed, handle EOF, or pass it into the parser.
+        return AppLayerResult::ok();
+    }
+
+    let state = cast_pointer!(state, SyslogState);
+
+    if stream_slice.is_gap() {
+        // Here we have a gap signaled by the input being null, but a greater
+        // than 0 input_len which provides the size of the gap.
+        state.on_request_gap(stream_slice.gap_size());
+        AppLayerResult::ok()
+    } else {
+        let buf = stream_slice.as_slice();
+        state.parse_request_udp(buf)
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rs_syslog_parse_response_udp(
+    _flow: *const Flow,
+    state: *mut std::os::raw::c_void,
+    pstate: *mut std::os::raw::c_void,
+    stream_slice: StreamSlice,
+    _data: *const std::os::raw::c_void
+) -> AppLayerResult {
+    let _eof = if AppLayerParserStateIssetFlag(pstate, APP_LAYER_PARSER_EOF_TC) > 0 {
+        true
+    } else {
+        false
+    };
+    let state = cast_pointer!(state, SyslogState);
+
+    if stream_slice.is_gap() {
+        // Here we have a gap signaled by the input being null, but a greater
+        // than 0 input_len which provides the size of the gap.
+        state.on_response_gap(stream_slice.gap_size());
+        AppLayerResult::ok()
+    } else {
+        let buf = stream_slice.as_slice();
+        state.parse_response_udp(buf)
     }
 }
 
@@ -357,8 +487,8 @@ pub unsafe extern "C" fn rs_syslog_register_parser() {
         state_new: rs_syslog_state_new,
         state_free: rs_syslog_state_free,
         tx_free: rs_syslog_state_tx_free,
-        parse_ts: rs_syslog_parse_request,
-        parse_tc: rs_syslog_parse_response,
+        parse_ts: rs_syslog_parse_request_udp,
+        parse_tc: rs_syslog_parse_response_udp,
         get_tx_count: rs_syslog_state_get_tx_count,
         get_tx: rs_syslog_state_get_tx,
         tx_comp_st_ts: 1,
@@ -394,8 +524,61 @@ pub unsafe extern "C" fn rs_syslog_register_parser() {
         {
             let _ = AppLayerRegisterParser(&parser, alproto);
         }
-        SCLogNotice!("Rust syslog parser registered, alproto {:?}", alproto);
+        SCLogNotice!("Rust syslog udp parser registered, alproto {:?}", alproto);
     } else {
-        SCLogNotice!("Protocol detector and parser disabled for syslog.");
+        SCLogNotice!("Protocol detector and parser disabled for syslog udp.");
+    }
+
+    let parser = RustParser {
+        name: PARSER_NAME.as_ptr() as *const std::os::raw::c_char,
+        default_port: default_port.as_ptr(),
+        ipproto: IPPROTO_TCP,
+        probe_ts: Some(rs_syslog_probing_parser),
+        probe_tc: Some(rs_syslog_probing_parser),
+        min_depth: 0,
+        max_depth: 16,
+        state_new: rs_syslog_state_new,
+        state_free: rs_syslog_state_free,
+        tx_free: rs_syslog_state_tx_free,
+        parse_ts: rs_syslog_parse_request_tcp,
+        parse_tc: rs_syslog_parse_response_tcp,
+        get_tx_count: rs_syslog_state_get_tx_count,
+        get_tx: rs_syslog_state_get_tx,
+        tx_comp_st_ts: 1,
+        tx_comp_st_tc: 1,
+        tx_get_progress: rs_syslog_tx_get_alstate_progress,
+        get_eventinfo: Some(SyslogEvent::get_event_info),
+        get_eventinfo_byid : Some(SyslogEvent::get_event_info_by_id),
+        localstorage_new: None,
+        localstorage_free: None,
+        get_files: None,
+        get_tx_iterator: Some(applayer::state_get_tx_iterator::<SyslogState, SyslogTransaction>),
+        get_tx_data: rs_syslog_get_tx_data,
+        apply_tx_config: None,
+        flags: APP_LAYER_PARSER_OPT_UNIDIR_TXS,
+        truncate: None,
+        get_frame_id_by_name: None,
+        get_frame_name_by_id: None,
+    };
+
+    let ip_proto_str = CString::new("tcp").unwrap();
+
+    if AppLayerProtoDetectConfProtoDetectionEnabled(
+        ip_proto_str.as_ptr(),
+        parser.name,
+    ) != 0
+    {
+        let alproto = AppLayerRegisterProtocolDetection(&parser, 1);
+        ALPROTO_SYSLOG = alproto;
+        if AppLayerParserConfParserEnabled(
+            ip_proto_str.as_ptr(),
+            parser.name,
+        ) != 0
+        {
+            let _ = AppLayerRegisterParser(&parser, alproto);
+        }
+        SCLogNotice!("Rust syslog tcp parser registered, alproto {:?}", alproto);
+    } else {
+        SCLogNotice!("Protocol detector and parser disabled for syslog tcp.");
     }
 }
