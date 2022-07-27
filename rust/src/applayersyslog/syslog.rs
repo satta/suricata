@@ -32,7 +32,6 @@ enum SyslogEvent {}
 pub struct SyslogTransaction {
     tx_id: u64,
     pub request: Option<parser::SyslogMessage>,
-    pub response: Option<parser::SyslogMessage>,
 
     tx_data: AppLayerTxData,
 }
@@ -42,7 +41,6 @@ impl SyslogTransaction {
         SyslogTransaction {
             tx_id: 0,
             request: None,
-            response: None,
             tx_data: AppLayerTxData::new(),
         }
     }
@@ -58,7 +56,6 @@ pub struct SyslogState {
     tx_id: u64,
     transactions: VecDeque<SyslogTransaction>,
     request_gap: bool,
-    response_gap: bool,
 }
 
 impl State<SyslogTransaction> for SyslogState {
@@ -77,7 +74,6 @@ impl SyslogState {
             tx_id: 0,
             transactions: VecDeque::new(),
             request_gap: false,
-            response_gap: false,
         }
     }
 
@@ -115,15 +111,6 @@ impl SyslogState {
         return tx;
     }
 
-    fn find_request(&mut self) -> Option<&mut SyslogTransaction> {
-        for tx in &mut self.transactions {
-            if tx.response.is_none() {
-                return Some(tx);
-            }
-        }
-        None
-    }
-
     fn parse_request_udp(&mut self, input: &[u8]) -> AppLayerResult {
         // We're not interested in empty requests.
         if input.len() == 0 {
@@ -156,43 +143,6 @@ impl SyslogState {
         }
 
         // Input was fully consumed.
-        return AppLayerResult::ok();
-    }
-
-    fn parse_response_udp(&mut self, input: &[u8]) -> AppLayerResult {
-        // We're not interested in empty responses.
-        if input.len() == 0 {
-            return AppLayerResult::ok();
-        }
-
-        let mut start = input;
-        while start.len() > 0 {
-            match parser::parse_message_udp(start) {
-                Ok((rem, response)) => {
-                    start = rem;
-
-                    match self.find_request() {
-                        Some(tx) => {
-                            tx.response = Some(response);
-                            SCLogNotice!("Found response for request:");
-                            SCLogNotice!("- Request: {:?}", tx.request);
-                            SCLogNotice!("- Response: {:?}", tx.response);
-                        }
-                        None => {}
-                    }
-                }
-                Err(Err::Incomplete(_)) => {
-                    let consumed = input.len() - start.len();
-                    let needed = start.len() + 1;
-                    return AppLayerResult::incomplete(consumed as u32, needed as u32);
-                }
-                Err(_) => {
-                    return AppLayerResult::err();
-                }
-            }
-        }
-
-        // All input was fully consumed.
         return AppLayerResult::ok();
     }
 
@@ -231,50 +181,10 @@ impl SyslogState {
         return AppLayerResult::ok();
     }
 
-    fn parse_response_tcp(&mut self, input: &[u8]) -> AppLayerResult {
-        // We're not interested in empty responses.
-        if input.len() == 0 {
-            return AppLayerResult::ok();
-        }
-
-        let mut start = input;
-        while start.len() > 0 {
-            match parser::parse_message_tcp(start) {
-                Ok((rem, response)) => {
-                    start = rem;
-
-                    match self.find_request() {
-                        Some(tx) => {
-                            tx.response = Some(response);
-                            SCLogNotice!("Found response for request:");
-                            SCLogNotice!("- Request: {:?}", tx.request);
-                            SCLogNotice!("- Response: {:?}", tx.response);
-                        }
-                        None => {}
-                    }
-                }
-                Err(Err::Incomplete(_)) => {
-                    let consumed = input.len() - start.len();
-                    let needed = start.len() + 1;
-                    return AppLayerResult::incomplete(consumed as u32, needed as u32);
-                }
-                Err(_) => {
-                    return AppLayerResult::err();
-                }
-            }
-        }
-
-        // All input was fully consumed.
-        return AppLayerResult::ok();
-    }
-
     fn on_request_gap(&mut self, _size: u32) {
         self.request_gap = true;
     }
 
-    fn on_response_gap(&mut self, _size: u32) {
-        self.response_gap = true;
-    }
 }
 
 // C exports.
@@ -352,27 +262,12 @@ pub unsafe extern "C" fn rs_syslog_parse_request_tcp(
 #[no_mangle]
 pub unsafe extern "C" fn rs_syslog_parse_response_tcp(
     _flow: *const Flow,
-    state: *mut std::os::raw::c_void,
-    pstate: *mut std::os::raw::c_void,
-    stream_slice: StreamSlice,
+    _state: *mut std::os::raw::c_void,
+    _pstate: *mut std::os::raw::c_void,
+    _stream_slice: StreamSlice,
     _data: *const std::os::raw::c_void
 ) -> AppLayerResult {
-    let _eof = if AppLayerParserStateIssetFlag(pstate, APP_LAYER_PARSER_EOF_TC) > 0 {
-        true
-    } else {
-        false
-    };
-    let state = cast_pointer!(state, SyslogState);
-
-    if stream_slice.is_gap() {
-        // Here we have a gap signaled by the input being null, but a greater
-        // than 0 input_len which provides the size of the gap.
-        state.on_response_gap(stream_slice.gap_size());
-        AppLayerResult::ok()
-    } else {
-        let buf = stream_slice.as_slice();
-        state.parse_response_tcp(buf)
-    }
+    AppLayerResult::ok()
 }
 
 #[no_mangle]
@@ -410,27 +305,12 @@ pub unsafe extern "C" fn rs_syslog_parse_request_udp(
 #[no_mangle]
 pub unsafe extern "C" fn rs_syslog_parse_response_udp(
     _flow: *const Flow,
-    state: *mut std::os::raw::c_void,
-    pstate: *mut std::os::raw::c_void,
-    stream_slice: StreamSlice,
+    _state: *mut std::os::raw::c_void,
+    _pstate: *mut std::os::raw::c_void,
+    _stream_slice: StreamSlice,
     _data: *const std::os::raw::c_void
 ) -> AppLayerResult {
-    let _eof = if AppLayerParserStateIssetFlag(pstate, APP_LAYER_PARSER_EOF_TC) > 0 {
-        true
-    } else {
-        false
-    };
-    let state = cast_pointer!(state, SyslogState);
-
-    if stream_slice.is_gap() {
-        // Here we have a gap signaled by the input being null, but a greater
-        // than 0 input_len which provides the size of the gap.
-        state.on_response_gap(stream_slice.gap_size());
-        AppLayerResult::ok()
-    } else {
-        let buf = stream_slice.as_slice();
-        state.parse_response_udp(buf)
-    }
+    AppLayerResult::ok()
 }
 
 #[no_mangle]
@@ -439,7 +319,6 @@ pub unsafe extern "C" fn rs_syslog_state_get_tx(
     tx_id: u64,
 ) -> *mut std::os::raw::c_void {
     let state = cast_pointer!(state, SyslogState);
-    SCLogNotice!("get tx {:?}", tx_id);
     match state.get_tx(tx_id) {
         Some(tx) => {
             return tx as *const _ as *mut _;
@@ -455,7 +334,6 @@ pub unsafe extern "C" fn rs_syslog_state_get_tx_count(
     state: *mut std::os::raw::c_void,
 ) -> u64 {
     let state = cast_pointer!(state, SyslogState);
-    SCLogNotice!("get tx count {:?}", state.tx_id);
     return state.tx_id;
 }
 
@@ -464,7 +342,6 @@ pub unsafe extern "C" fn rs_syslog_tx_get_alstate_progress(
     _tx: *mut std::os::raw::c_void,
     _direction: u8,
 ) -> std::os::raw::c_int {
-    SCLogNotice!("get progress");
     return 2;
 }
 
