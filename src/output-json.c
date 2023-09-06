@@ -849,7 +849,7 @@ JsonBuilder *CreateEveHeader(const Packet *p, enum OutputJsonLogDirection dir,
     if (p->mpls_idx > 0) {
         int i;
         jb_open_array(js, "mpls");
-        for(i = 0; i < p->mpls_idx; i++) {
+        for (i = 0; i < p->mpls_idx; i++) {
             jb_append_uint(js, p->mpls_label[i]);
         }
         jb_close(js);
