@@ -152,6 +152,8 @@ void FlowInit(Flow *f, const Packet *p)
     f->recursion_level = p->recursion_level;
     memcpy(&f->vlan_id[0], &p->vlan_id[0], sizeof(f->vlan_id));
     f->vlan_idx = p->vlan_idx;
+    memcpy(&f->mpls_label[0], &p->mpls_label[0], sizeof(f->mpls_label));
+    f->mpls_idx = p->mpls_idx;
     f->livedev = p->livedev;
 
     if (PKT_IS_IPV4(p)) {

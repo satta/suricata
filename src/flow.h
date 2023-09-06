@@ -368,9 +368,12 @@ typedef struct Flow_
     };
     uint8_t proto;
     uint8_t recursion_level;
-    uint16_t vlan_id[VLAN_MAX_LAYERS];
 
+    uint16_t vlan_id[VLAN_MAX_LAYERS];
     uint8_t vlan_idx;
+
+    uint32_t mpls_label[MPLS_MAX_LABELS];
+    uint8_t mpls_idx;
 
     /* track toserver/toclient flow timeout needs */
     union {

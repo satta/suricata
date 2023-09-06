@@ -414,6 +414,8 @@ Packet *PacketDefragPktSetup(Packet *parent, const uint8_t *pkt, uint32_t len, u
     SET_TUNNEL_PKT(p);
     memcpy(&p->vlan_id[0], &parent->vlan_id[0], sizeof(p->vlan_id));
     p->vlan_idx = parent->vlan_idx;
+    memcpy(&p->mpls_label[0], &parent->mpls_label[0], sizeof(p->mpls_label));
+    p->mpls_idx = parent->mpls_idx;
     p->livedev = parent->livedev;
 
     SCReturnPtr(p, "Packet");

@@ -103,6 +103,8 @@ void PacketReinit(Packet *p)
     p->vlan_id[0] = 0;
     p->vlan_id[1] = 0;
     p->vlan_idx = 0;
+    memset(&p->mpls_label[0], 0, sizeof(p->mpls_label));
+    p->mpls_idx = 0;
     SCTIME_INIT(p->ts);
     p->datalink = 0;
     p->drop_reason = 0;

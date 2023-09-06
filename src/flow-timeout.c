@@ -92,6 +92,8 @@ static inline Packet *FlowForceReassemblyPseudoPacketSetup(Packet *p,
     p->flags |= PKT_PSEUDO_STREAM_END;
     memcpy(&p->vlan_id[0], &f->vlan_id[0], sizeof(p->vlan_id));
     p->vlan_idx = f->vlan_idx;
+    memcpy(&p->mpls_label[0], &f->mpls_label[0], sizeof(p->mpls_label));
+    p->mpls_idx = f->mpls_idx;
     p->livedev = (struct LiveDevice_ *)f->livedev;
 
     if (f->flags & FLOW_NOPACKET_INSPECTION) {

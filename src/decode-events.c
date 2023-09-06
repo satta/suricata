@@ -517,6 +517,10 @@ const struct DecodeEvents_ DEvents[] = {
             MPLS_BAD_LABEL_RESERVED,
     },
     {
+            "decoder.mpls.label_not_logged_limit_exceeded",
+            MPLS_LABEL_NOT_LOGGED_LIMIT_EXCEEDED,
+    },
+    {
             "decoder.mpls.unknown_payload_type",
             MPLS_UNKNOWN_PAYLOAD_TYPE,
     },

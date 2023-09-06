@@ -456,6 +456,9 @@ typedef struct Packet_
     uint16_t vlan_id[VLAN_MAX_LAYERS];
     uint8_t vlan_idx;
 
+    uint32_t mpls_label[MPLS_MAX_LABELS];
+    uint8_t mpls_idx;
+
     /* flow */
     uint8_t flowflags;
     /* coccinelle: Packet:flowflags:FLOW_PKT_ */

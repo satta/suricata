@@ -119,6 +119,16 @@ static JsonBuilder *CreateEveHeaderFromFlow(const Flow *f)
         jb_close(jb);
     }
 
+    /* mpls */
+    if (f->mpls_idx > 0) {
+        int i;
+        jb_open_array(jb, "mpls");
+        for(i = 0; i < f->mpls_idx; i++) {
+            jb_append_uint(jb, f->mpls_label[i]);
+        }
+        jb_close(jb);
+    }
+
     /* tuple */
     jb_set_string(jb, "src_ip", srcip);
     switch(f->proto) {

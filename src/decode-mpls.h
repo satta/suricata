@@ -19,6 +19,7 @@
  * \file
  *
  * \author Jason Ish <jason.ish@emulex.com>
+ * \author Sascha Steinbiss <sascha@steinbiss.name>
  *
  * MPLS decoder.
  */
@@ -30,5 +31,9 @@
 #define ETHERNET_TYPE_MPLS_MULTICAST 0x8848
 
 void DecodeMPLSRegisterTests(void);
+
+/** MPLS max label count/index */
+#define MPLS_MAX_LABELS    3
+#define MPLS_MAX_LABEL_IDX (MPLS_MAX_LABELS - 1)
 
 #endif /* !__DECODE_MPLS_H__ */

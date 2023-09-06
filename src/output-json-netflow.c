@@ -122,6 +122,16 @@ static JsonBuilder *CreateEveHeaderFromNetFlow(const Flow *f, int dir)
         }
         jb_close(js);
     }
+    
+    /* mpls */
+    if (f->mpls_idx > 0) {
+        int i;
+        jb_open_array(js, "mpls");
+        for(i = 0; i < f->mpls_idx; i++) {
+            jb_append_uint(js, f->mpls_label[i]);
+        }
+        jb_close(js);
+    }
 
     /* tuple */
     jb_set_string(js, "src_ip", srcip);

@@ -68,7 +68,15 @@ int DecodeMPLS(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p,
         memcpy(&shim, pkt, sizeof(shim));
         pkt += MPLS_HEADER_LEN;
         len -= MPLS_HEADER_LEN;
+        label = MPLS_LABEL(shim);
+        if (p->mpls_idx < MPLS_MAX_LABELS) {
+            p->mpls_label[p->mpls_idx++] = label;
+        }
     } while (MPLS_BOTTOM(shim) == 0);
+
+    if (p->mpls_idx >= MPLS_MAX_LABELS) {
+        ENGINE_SET_EVENT(p, MPLS_LABEL_NOT_LOGGED_LIMIT_EXCEEDED);
+    }
 
     label = MPLS_LABEL(shim);
     if (label == MPLS_LABEL_IPV4) {
