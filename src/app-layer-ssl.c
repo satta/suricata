@@ -694,7 +694,8 @@ static inline int TLSDecodeHSHelloVersion(SSLState *ssl_state,
     uint16_t version = (uint16_t)(*input << 8) | *(input + 1);
     ssl_state->curr_connp->version = version;
 
-    if (ssl_state->curr_connp->ja4 != NULL && ssl_state->current_flags & SSL_AL_FLAG_STATE_CLIENT_HELLO) {
+    if (ssl_state->curr_connp->ja4 != NULL &&
+            ssl_state->current_flags & SSL_AL_FLAG_STATE_CLIENT_HELLO) {
         SCJA4SetTLSVersion(ssl_state->curr_connp->ja4, version);
     }
 
@@ -865,7 +866,8 @@ static inline int TLSDecodeHSHelloCipherSuites(SSLState *ssl_state,
             input += 2;
 
             if (TLSDecodeValueIsGREASE(cipher_suite) != 1) {
-                if (ssl_state->curr_connp->ja4 != NULL && ssl_state->current_flags & SSL_AL_FLAG_STATE_CLIENT_HELLO) {
+                if (ssl_state->curr_connp->ja4 != NULL &&
+                        ssl_state->current_flags & SSL_AL_FLAG_STATE_CLIENT_HELLO) {
                     SCJA4AddCipher(ssl_state->curr_connp->ja4, cipher_suite);
                 }
                 if (SC_ATOMIC_GET(ssl_config.enable_ja3)) {
@@ -1043,7 +1045,8 @@ static inline int TLSDecodeHSHelloExtensionSupportedVersions(SSLState *ssl_state
             uint16_t ver = (uint16_t)(input[i] << 8) | input[i + 1];
             if (TLSVersionValid(ver)) {
                 ssl_state->curr_connp->version = ver;
-                if (ssl_state->curr_connp->ja4 != NULL && ssl_state->current_flags & SSL_AL_FLAG_STATE_CLIENT_HELLO) {
+                if (ssl_state->curr_connp->ja4 != NULL &&
+                        ssl_state->current_flags & SSL_AL_FLAG_STATE_CLIENT_HELLO) {
                     SCJA4SetTLSVersion(ssl_state->curr_connp->ja4, ver);
                 }
                 break;
@@ -1215,7 +1218,8 @@ static inline int TLSDecodeHSHelloExtensionSigAlgorithms(
     if (!(HAS_SPACE(sigalgo_len)))
         goto invalid_length;
 
-    if (ssl_state->curr_connp->ja4 != NULL && ssl_state->current_flags & SSL_AL_FLAG_STATE_CLIENT_HELLO) {
+    if (ssl_state->curr_connp->ja4 != NULL &&
+            ssl_state->current_flags & SSL_AL_FLAG_STATE_CLIENT_HELLO) {
         uint16_t sigalgo_processed_len = 0;
         while (sigalgo_processed_len < sigalgo_len) {
             uint16_t sigalgo = (uint16_t)(*input << 8) | *(input + 1);
@@ -1256,7 +1260,8 @@ static inline int TLSDecodeHSHelloExtensionALPN(
     if (!(HAS_SPACE(alpn_len)))
         goto invalid_length;
 
-    if (ssl_state->curr_connp->ja4 != NULL && ssl_state->current_flags & SSL_AL_FLAG_STATE_CLIENT_HELLO) {
+    if (ssl_state->curr_connp->ja4 != NULL &&
+            ssl_state->current_flags & SSL_AL_FLAG_STATE_CLIENT_HELLO) {
         /* We use 32 bits here to avoid potentially overflowing a value that
            needs to be compared to an unsigned 16-bit value. */
         uint32_t alpn_processed_len = 0;
@@ -1466,7 +1471,8 @@ static inline int TLSDecodeHSHelloExtensions(SSLState *ssl_state,
             }
         }
 
-        if (ssl_state->curr_connp->ja4 != NULL && ssl_state->current_flags & SSL_AL_FLAG_STATE_CLIENT_HELLO) {
+        if (ssl_state->curr_connp->ja4 != NULL &&
+                ssl_state->current_flags & SSL_AL_FLAG_STATE_CLIENT_HELLO) {
             if (TLSDecodeValueIsGREASE(ext_type) != 1) {
                 SCJA4AddExtension(ssl_state->curr_connp->ja4, ext_type);
             }
