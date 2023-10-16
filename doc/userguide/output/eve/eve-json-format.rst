@@ -2491,7 +2491,7 @@ Fields
 Examples
 ~~~~~~~~
 
-Example of QUIC logging with CYU, JA3 and JA4 hashes (artificial):
+Example of QUIC logging with CYU, JA3 and JA4 hashes (note that the JA4 hash is only an example to illustrate the format and does not correlate with the others):
 
 ::
 
