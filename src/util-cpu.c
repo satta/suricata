@@ -28,6 +28,7 @@
 #include "util-debug.h"
 #include "util-cpu.h"
 #include "util-byte.h"
+#include "util-unittest.h"
 
 /**
  * Ok, if they should use sysconf, check that they have the macro's
@@ -107,6 +108,11 @@ uint16_t UtilCpuGetNumProcessorsConfigured(void)
  */
 uint16_t UtilCpuGetNumProcessorsOnline(void)
 {
+#ifdef UNITTESTS
+    if (UtTestRunning()) {
+        return (uint16_t)UNITTEST_NUM_CPUS;
+    }
+#endif
 #ifdef SYSCONF_NPROCESSORS_ONLN_COMPAT
     long nprocs = -1;
     nprocs = sysconf(_SC_NPROCESSORS_ONLN);

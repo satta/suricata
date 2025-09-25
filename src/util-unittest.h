@@ -35,6 +35,9 @@
 
 #ifdef UNITTESTS
 
+/* Number of CPUs to report during tests. */
+#define UNITTEST_NUM_CPUS 10
+
 typedef struct UtTest_
 {
     const char *name;
@@ -48,6 +51,7 @@ void UtRegisterTest(const char *name, int(*TestFn)(void));
 uint32_t UtRunTests(const char *regex_arg);
 void UtInitialize(void);
 void UtCleanup(void);
+int UtTestRunning(void);
 int UtRunSelftest (const char *regex_arg);
 void UtListTests(const char *regex_arg);
 void UtRunModeRegister(void);

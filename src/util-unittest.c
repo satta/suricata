@@ -49,6 +49,8 @@ static pcre2_match_data *parse_regex_match;
 
 static UtTest *ut_list;
 
+static bool ut_in_test = false;
+
 int unittests_fatal = 0;
 
 /**
@@ -191,6 +193,8 @@ uint32_t UtRunTests(const char *regex_arg)
     uint32_t good = 0, bad = 0, matchcnt = 0;
     int ret = 0, rcomp = 0;
 
+    ut_in_test = true;
+
     StreamTcpInitMemuse();
     StreamTcpReassembleInitMemuse();
 
@@ -238,6 +242,7 @@ uint32_t UtRunTests(const char *regex_arg)
                 }
             }
         }
+        ut_in_test = false;
         if(matchcnt > 0){
             printf("==== TEST RESULTS ====\n");
             printf("PASSED: %" PRIu32 "\n", good);
@@ -336,6 +341,20 @@ int UtRunSelftest (const char *regex_arg)
     UtCleanup();
     return 0;
 }
+
+/** \brief Return whether we are in a unit test run or not
+ *
+ *  \retval 1 True
+ *  \retval 0 False
+ */
+int UtTestRunning(void)
+{
+    if (ut_in_test)
+        return 1;
+    else
+        return 0;
+}
+
 #endif /* UNITTESTS */
 
 /**
